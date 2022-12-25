@@ -5,16 +5,21 @@ module.exports = class Validator {
 
   validate(obj) {
     const errors = [];
+    
+    if (obj == null) {
+        errors.push({error: `object for validating is null`});
+        return errors;
+      }
 
     for (const field of Object.keys(this.rules)) {
       const rules = this.rules[field];
 
       const value = obj[field];
-      const type = typeof value;
-
-      if (type !== rules.type) {
+      const type = (typeof value).toLowerCase();
+      
+      if (type !== rules.type.toLowerCase()) {
         errors.push({field, error: `expect ${rules.type}, got ${type}`});
-        return errors;
+        continue;
       }
 
       switch (type) {
@@ -31,7 +36,7 @@ module.exports = class Validator {
             errors.push({field, error: `too little, expect ${rules.min}, got ${value}`});
           }
           if (value > rules.max) {
-            errors.push({field, error: `too big, expect ${rules.min}, got ${value}`});
+            errors.push({field, error: `too big, expect ${rules.max}, got ${value}`});
           }
           break;
       }
