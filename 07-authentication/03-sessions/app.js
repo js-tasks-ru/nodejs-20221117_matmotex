@@ -14,6 +14,7 @@ const app = new Koa();
 app.use(require('koa-static')(path.join(__dirname, 'public')));
 app.use(require('koa-bodyparser')());
 
+
 app.use(async (ctx, next) => {
   try {
     await next();
@@ -29,31 +30,60 @@ app.use(async (ctx, next) => {
   }
 });
 
+
 app.use((ctx, next) => {
   ctx.login = async function(user) {
     const token = uuid();
-
+	
+    await Session.create({
+      token: token
+      , lastVisit: new Date()
+      , user: user
+    });
+	
     return token;
   };
 
   return next();
 });
 
+
 const router = new Router({prefix: '/api'});
+
 
 router.use(async (ctx, next) => {
   const header = ctx.request.get('Authorization');
   if (!header) return next();
-
+  
+  //console.dir(header);
+  //const tokenType = header.split(' ')[0];
+  const token = header.split(' ')[1];
+  if (!token) return next();
+  
+  const session = await Session.findOne({token: token}).populate('user');
+  
+  if (!session) {
+    ctx.status = 401;
+    ctx.body = {error: 'Неверный аутентификационный токен'};
+    return;
+  }
+  
+  await Session.findByIdAndUpdate(session.id, {
+    lastVisit: new Date(),
+  });
+  
+  ctx.user = session.user;
+  
   return next();
 });
+
 
 router.post('/login', login);
 
 router.get('/oauth/:provider', oauth);
 router.post('/oauth_callback', handleMongooseValidationError, oauthCallback);
 
-router.get('/me', me);
+router.get('/me', mustBeAuthenticated, me);
 
 app.use(router.routes());
 
